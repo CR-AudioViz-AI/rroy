@@ -1,0 +1,7 @@
+{
+  "framework": "nextjs",
+  "outputDirectory": ".next",
+  "github": {
+    "autoAlias": false
+  }
+}
