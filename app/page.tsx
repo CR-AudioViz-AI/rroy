@@ -1,118 +1,129 @@
 "use client";
-// app/page.tsx — rroy: Universal Deduplication Tool
-// T1: Plex + Filesystem | T2: SMB/NAS | T3: Enterprise
+// app/page.tsx — rroy v2 — full dedup tool with mobile support
 // CR AudioViz AI · EIN 39-3646201 · May 2026
 import { useState } from "react";
 
-const TIERS = [
-  { id:"t1", icon:"🎬", name:"Tier 1 — Media Library", sub:"Plex + Filesystem",
-    desc:"Find duplicate movies, shows, and music across your Plex library and NAS.", color:"#00B4D8",
-    features:["Plex API integration","NAS/SMB scanning","Bitrate comparison","Safe delete","Free space estimate"],
-    status:"✅ Live" },
-  { id:"t2", icon:"🖥️", name:"Tier 2 — Network Shares", sub:"SMB / NFS / Cloud",
-    desc:"Deduplicate across SMB shares, NFS mounts, and cloud storage.", color:"#1E3A5F",
-    features:["SMB share support","Cross-drive dedup","Hash comparison","Dry-run mode","Scheduled scans"],
-    status:"🔨 In Development" },
-  { id:"t3", icon:"🏢", name:"Tier 3 — Enterprise", sub:"Multi-site / S3 / Scale",
-    desc:"Enterprise deduplication across S3, Azure Blob, and large-scale storage.", color:"#FF0800",
-    features:["S3 / Azure Blob","Petabyte scale","API access","Audit trail","SLA support"],
-    status:"🗺️ On Roadmap" },
-];
-
 export default function RroyHome() {
-  const [path, setPath] = useState("");
-  const [plexUrl, setPlexUrl] = useState("");
-  const [scanning, setScanning] = useState(false);
-  const [results, setResults] = useState<any>(null);
+  const [tab,setTab]=useState<"filesystem"|"plex"|"smb">("plex");
+  const [input,setInput]=useState(""); const [token,setToken]=useState("");
+  const [result,setResult]=useState<any>(null); const [loading,setLoading]=useState(false);
 
-  async function scan() {
-    if (!path && !plexUrl) return;
-    setScanning(true); setResults(null);
-    try {
-      const r = await fetch("/api/scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path, plexUrl, mode: "dry-run" }),
-      });
-      setResults(await r.json());
-    } catch { setResults({ error: "Scan failed." }); }
-    setScanning(false);
+  async function scan(){
+    if(!input.trim())return; setLoading(true);setResult(null);
+    const body: any = {mode:"dry-run"};
+    if(tab==="plex"){body.plexUrl=input;body.plexToken=token;}
+    else if(tab==="smb"){body.smbShare=input;body.tier="t2";}
+    else{body.path=input;}
+    try{
+      const r=await fetch("/api/scan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      setResult(await r.json());
+    }catch{setResult({error:"Scan failed."});}
+    setLoading(false);
   }
 
-  return (
-    <div style={{ minHeight:"100vh", background:"#040912", color:"#e2e8f0", fontFamily:"system-ui" }}>
-      <nav style={{ background:"#1E3A5F", padding:"0 20px", height:52, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:100 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <span style={{ fontWeight:900, color:"#FF0800", fontSize:18, fontStyle:"italic" }}>rroy</span>
-          <span style={{ color:"#374151", fontSize:11 }}>Universal Dedup · EIN 39-3646201</span>
+  const presets=[
+    {label:"Synology /media",  value:"\\\\192.168.1.141\\media",  tab:"smb" as const},
+    {label:"Synology /photos", value:"\\\\192.168.1.141\\photos", tab:"smb" as const},
+    {label:"Ubuntu /downloads",value:"/home/downloads",                 tab:"filesystem" as const},
+    {label:"Plex (local)",     value:"http://192.168.1.50:32400",       tab:"plex" as const},
+  ];
+
+  return(
+    <div style={{minHeight:"100vh",background:"#040912",color:"#e2e8f0",fontFamily:"system-ui"}}>
+      <nav style={{background:"#1E3A5F",padding:"0 16px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontWeight:900,color:"#FF0800",fontSize:18,fontStyle:"italic"}}>rroy</span>
+          <span style={{color:"#374151",fontSize:11}}>dedup engine</span>
         </div>
-        <a href="https://craudiovizai.com/auth/signup" style={{ background:"#FF0800", color:"#fff", borderRadius:7, padding:"5px 14px", fontSize:12, fontWeight:700, textDecoration:"none" }}>Sign Up</a>
+        <div style={{display:"flex",gap:8}}>
+          <a href="/docs" style={{color:"#6B7280",textDecoration:"none",fontSize:12}}>Docs</a>
+          <a href="/smb" style={{color:"#6B7280",textDecoration:"none",fontSize:12}}>T2 SMB</a>
+          <a href="https://craudiovizai.com/auth/signup" style={{background:"#FF0800",color:"#fff",borderRadius:7,padding:"5px 12px",fontSize:12,fontWeight:700,textDecoration:"none"}}>Sign Up</a>
+        </div>
       </nav>
 
-      <section style={{ background:"linear-gradient(135deg,#1E3A5F,#040912)", padding:"64px 24px 56px", textAlign:"center" }}>
-        <h1 style={{ fontSize:"clamp(28px,5vw,54px)", fontWeight:900, color:"#fff", margin:"0 0 14px", lineHeight:1.05 }}>
-          <span style={{ color:"#FF0800", fontStyle:"italic" }}>rroy</span><br />Universal Deduplication
-        </h1>
-        <p style={{ color:"rgba(255,255,255,0.7)", fontSize:15, lineHeight:1.65, margin:"0 0 32px", maxWidth:500, marginLeft:"auto", marginRight:"auto" }}>
-          Find and remove duplicate files across Plex, NAS, SMB shares, and cloud storage. Save terabytes.
-        </p>
-        <div style={{ display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
-          <a href="#scan" style={{ background:"#FF0800", color:"#fff", borderRadius:12, padding:"13px 28px", fontSize:15, fontWeight:800, textDecoration:"none" }}>Start Scanning</a>
-          <a href="/docs" style={{ background:"rgba(0,180,216,0.15)", color:"#00B4D8", border:"1px solid rgba(0,180,216,0.3)", borderRadius:12, padding:"13px 28px", fontSize:15, fontWeight:700, textDecoration:"none" }}>Docs</a>
+      <section style={{background:"linear-gradient(135deg,#1E3A5F,#040912)",padding:"52px 20px 44px",textAlign:"center"}}>
+        <div style={{maxWidth:600,margin:"0 auto"}}>
+          <h1 style={{fontSize:"clamp(28px,5vw,52px)",fontWeight:900,color:"#fff",margin:"0 0 10px",lineHeight:1.0}}>
+            <span style={{color:"#FF0800",fontStyle:"italic"}}>rroy</span>
+          </h1>
+          <p style={{fontSize:"clamp(14px,2vw,18px)",color:"rgba(255,255,255,0.7)",margin:"0 0 6px"}}>Universal deduplication. Plex · Filesystem · SMB.</p>
+          <p style={{fontSize:12,color:"#374151"}}>CR AudioViz AI · EIN: 39-3646201</p>
         </div>
       </section>
 
-      <section id="scan" style={{ maxWidth:700, margin:"0 auto", padding:"40px 20px 0" }}>
-        <div style={{ background:"#0F1F32", border:"1px solid rgba(0,180,216,0.12)", borderRadius:16, padding:"24px 28px" }}>
-          <h2 style={{ margin:"0 0 16px", fontSize:16, fontWeight:800, color:"#fff" }}>Quick Scan (Dry Run)</h2>
-          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            <input value={path} onChange={e=>setPath(e.target.value)} placeholder="/mnt/synology/media or /media/movies"
-              style={{ background:"#172D48", border:"1px solid rgba(0,180,216,0.15)", borderRadius:8, padding:"11px 14px", color:"#e2e8f0", fontSize:13, outline:"none", fontFamily:"system-ui" }} />
-            <input value={plexUrl} onChange={e=>setPlexUrl(e.target.value)} placeholder="Plex URL (optional): http://192.168.1.50:32400"
-              style={{ background:"#172D48", border:"1px solid rgba(0,180,216,0.15)", borderRadius:8, padding:"11px 14px", color:"#e2e8f0", fontSize:13, outline:"none", fontFamily:"system-ui" }} />
-            <button onClick={scan} disabled={scanning||(!path&&!plexUrl)}
-              style={{ background:scanning||(!path&&!plexUrl)?"#0F1F32":"#1E3A5F", color:scanning||(!path&&!plexUrl)?"#374151":"#00B4D8", border:"1px solid rgba(0,180,216,0.2)", borderRadius:8, padding:"11px", fontSize:14, fontWeight:700, cursor:scanning||(!path&&!plexUrl)?"not-allowed":"pointer", fontFamily:"system-ui" }}>
-              {scanning?"Scanning...":"🔍 Run Dry-Run Scan"}
+      <div style={{maxWidth:720,margin:"0 auto",padding:"28px 16px 72px"}}>
+        {/* Tier tabs */}
+        <div style={{display:"flex",gap:6,marginBottom:20}}>
+          {[["plex","🎬 Plex"],["filesystem","📁 Filesystem"],["smb","🖧 SMB/NAS"]].map(([t,l])=>(
+            <button key={t} onClick={()=>{setTab(t as any);setInput("");setResult(null);}}
+              style={{background:tab===t?"rgba(255,8,0,0.15)":"#0F1F32",color:tab===t?"#FF0800":"#6B7280",border:`1px solid ${tab===t?"rgba(255,8,0,0.3)":"rgba(255,255,255,0.07)"}`,borderRadius:8,padding:"8px 14px",cursor:"pointer",fontFamily:"system-ui",fontSize:13,fontWeight:600}}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        {/* Quick presets */}
+        <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
+          {presets.map(p=>(
+            <button key={p.label} onClick={()=>{setTab(p.tab);setInput(p.value);}}
+              style={{background:"rgba(255,8,0,0.05)",color:"#6B7280",border:"1px solid rgba(255,8,0,0.1)",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontFamily:"system-ui",fontSize:11}}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        <div style={{background:"#0F1F32",border:"1px solid rgba(255,8,0,0.12)",borderRadius:14,padding:20}}>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <input value={input} onChange={e=>setInput(e.target.value)}
+              placeholder={tab==="plex"?"Plex URL: http://192.168.1.50:32400":tab==="smb"?"SMB share: \\\\192.168.1.141\\media":"/path/to/scan"}
+              style={{background:"#172D48",border:"1px solid rgba(255,8,0,0.15)",borderRadius:8,padding:"11px 13px",color:"#e2e8f0",fontSize:13,outline:"none",fontFamily:"system-ui"}}/>
+            {tab==="plex"&&<input value={token} onChange={e=>setToken(e.target.value)} placeholder="Plex Token (optional)"
+              style={{background:"#172D48",border:"1px solid rgba(255,8,0,0.1)",borderRadius:8,padding:"11px 13px",color:"#e2e8f0",fontSize:13,outline:"none",fontFamily:"system-ui"}}/>}
+            <button onClick={scan} disabled={loading||!input.trim()}
+              style={{background:loading||!input.trim()?"#0A1628":"#FF0800",color:loading||!input.trim()?"#374151":"#fff",border:"none",borderRadius:9,padding:"12px",fontSize:14,fontWeight:700,cursor:loading||!input.trim()?"not-allowed":"pointer",fontFamily:"system-ui"}}>
+              {loading?"Scanning (dry-run)...":"🔍 Scan for Duplicates"}
             </button>
           </div>
-          {results && (
-            <div style={{ marginTop:16, padding:"14px 16px", background:results.error?"rgba(255,8,0,0.08)":"rgba(0,180,216,0.06)", border:`1px solid ${results.error?"rgba(255,8,0,0.2)":"rgba(0,180,216,0.15)"}`, borderRadius:10, fontSize:13, color:"#e2e8f0" }}>
-              {results.error ? results.error : (
-                <div>
-                  <p style={{ margin:"0 0 6px", fontWeight:700, color:"#00B4D8" }}>Scan Results (dry-run — no files deleted)</p>
-                  <p style={{ margin:"0 0 4px" }}>Files scanned: <strong>{results.scanned}</strong></p>
-                  <p style={{ margin:"0 0 4px" }}>Duplicates found: <strong style={{ color:"#FF0800" }}>{results.duplicates}</strong></p>
-                  <p style={{ margin:0 }}>Space recoverable: <strong style={{ color:"#FF0800" }}>{results.savings}</strong></p>
+
+          {result&&!result.error&&(
+            <div style={{marginTop:16,padding:"14px",background:"rgba(255,8,0,0.05)",border:"1px solid rgba(255,8,0,0.12)",borderRadius:10}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:14}}>
+                {[["Files scanned",result.scanned],["Duplicates",result.duplicates],["Space saved",result.savings]].map(([l,v])=>(
+                  <div key={l as string} style={{textAlign:"center",background:"#172D48",borderRadius:8,padding:"10px 6px"}}>
+                    <div style={{fontSize:18,fontWeight:900,color:"#FF0800"}}>{v}</div>
+                    <div style={{fontSize:10,color:"#374151"}}>{l}</div>
+                  </div>
+                ))}
+              </div>
+              {result.topDuplicates?.map((d:any,i:number)=>(
+                <div key={i} style={{background:"#172D48",borderRadius:8,padding:"9px 11px",marginBottom:7}}>
+                  <div style={{fontSize:12,fontWeight:700,color:"#e2e8f0",marginBottom:2}}>{d.name}</div>
+                  <div style={{fontSize:10,color:"#6B7280",marginBottom:2}}>{d.path}</div>
+                  <div style={{fontSize:10,color:"#374151"}}>{d.size} · {d.copies} copies · {d.hash?.slice(0,8)}</div>
                 </div>
-              )}
+              ))}
+              <p style={{fontSize:10,color:"#374151",margin:"8px 0 0"}}>Dry-run only. No files deleted.</p>
             </div>
           )}
+          {result?.error&&<p style={{marginTop:12,fontSize:12,color:"#FF0800"}}>{result.error}</p>}
         </div>
-      </section>
 
-      <section style={{ maxWidth:1060, margin:"0 auto", padding:"48px 20px 72px" }}>
-        <h2 style={{ textAlign:"center", fontSize:"clamp(20px,3vw,30px)", fontWeight:800, color:"#fff", margin:"0 0 32px" }}>Three tiers for every scale</h2>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:16 }}>
-          {TIERS.map(t => (
-            <div key={t.id} style={{ background:"#0F1F32", border:`1px solid ${t.color}25`, borderRadius:18, padding:"24px 22px" }}>
-              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:12 }}>
-                <span style={{ fontSize:32 }}>{t.icon}</span>
-                <span style={{ background:`${t.color}18`, color:t.color, border:`1px solid ${t.color}30`, borderRadius:20, padding:"2px 10px", fontSize:10, fontWeight:700 }}>{t.status}</span>
+        <div style={{marginTop:20,display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:12}}>
+          {[["T1","Plex + Filesystem","Live — scan your media library and local drives","🎬"],
+            ["T2","SMB / NAS","Beta — scan network shares and NAS devices","🖧"],
+            ["T3","Enterprise","Coming — S3, Azure Blob, petabyte scale","☁️"]].map(([tier,name,desc,icon])=>(
+            <div key={tier} style={{background:"#0F1F32",border:"1px solid rgba(255,8,0,0.08)",borderRadius:12,padding:"14px 14px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                <span style={{fontSize:18}}>{icon}</span>
+                <span style={{fontSize:11,fontWeight:700,color:"#FF0800"}}>Tier {tier}</span>
               </div>
-              <h3 style={{ margin:"0 0 3px", fontSize:15, fontWeight:800, color:t.color }}>{t.name}</h3>
-              <p style={{ margin:"0 0 10px", fontSize:12, color:"#6B7280" }}>{t.sub}</p>
-              <p style={{ margin:"0 0 16px", fontSize:13, color:"#9CA3AF", lineHeight:1.5 }}>{t.desc}</p>
-              <ul style={{ listStyle:"none", margin:0, padding:0 }}>
-                {t.features.map((f,i) => <li key={i} style={{ display:"flex", gap:7, fontSize:12, color:"#6B7280", marginBottom:6 }}><span style={{ color:t.color }}>✓</span>{f}</li>)}
-              </ul>
+              <div style={{fontSize:13,fontWeight:700,color:"#e2e8f0",marginBottom:4}}>{name}</div>
+              <div style={{fontSize:11,color:"#374151"}}>{desc}</div>
             </div>
           ))}
         </div>
-      </section>
-
-      <footer style={{ borderTop:"1px solid rgba(0,180,216,0.08)", padding:"14px 24px", textAlign:"center" }}>
-        <p style={{ color:"#374151", fontSize:11, margin:0 }}>© 2026 CR AudioViz AI, LLC — EIN: 39-3646201 · Built by Roy Henderson</p>
-      </footer>
+      </div>
     </div>
   );
 }
